@@ -24,101 +24,71 @@ ld   <- pipload::pip_load_cache("CHN", type = "list")
 pop <- pipload::pip_load_aux("pop")
 pop <- pop[country_code == "CHN"]
 
+# cpi
+cpi <- pipload::pip_load_aux("cpi")
+cpi <-
+  cpi[
+  country_code == "CHN",
+  c("survey_year", "cpi_data_level", "cpi")
+  ][
+  cpi_data_level != "national"
+    ]
+
+setnames(cpi, c("survey_year", "cpi_data_level"), c("year", "area"))
+
+# ppp
+ppp <- pipload::pip_load_aux("ppp")
+ppp <- ppp[country_code == "CHN" & ppp_default == TRUE,
+           c("ppp_data_level", "ppp")
+][
+  ppp_data_level != "national"
+]
+
+setnames(ppp, "ppp_data_level", "area")
+
+
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ## Group data means in LCU --------
 
 gdm <- pipload::pip_load_aux("gdm")
-means <-
+ff <-
   gdm[country_code == "CHN"
   ][,
     mean := survey_mean_lcu* (12/365)
   ][,
     .(surveyid_year, pop_data_level, mean )]
 
-means <- split(means, by = "surveyid_year")
-
-means <-
-  purrr::map(.x = means,
-             .f = ~{
-               y <-       .x[, mean]
-               names(y) <- .x[, pop_data_level]
-               y
-             })
-
-years     <- names(means)
-names(ld) <- years
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Functions   ---------
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+setnames(ff, c("surveyid_year", "pop_data_level"), c("year", "area"))
 
 
-gmeans <- function(df, mn) {
+ff <- joyn::merge(ff, ppp,
+                  by         = "area",
+                  match_type = "m:1",
+                  reportvar  = FALSE)
 
-  levels <- df[, unique(as.character(reporting_level))]
-
-  y <- purrr::map(.x = levels,
-                  .f = ~{
-
-                    dfx <- df[reporting_level == .x]
-                    mnx <- mn[.x]
-
-                    cpi  <- dfx[, unique(cpi)]
-                    ppp  <- dfx[, unique(ppp)]
-
-                    mnx <- wbpip::deflate_welfare_mean(welfare_mean = mnx,
-                                                       ppp = ppp,
-                                                       cpi = cpi)
-
-                    return(mnx)
-                  })
-  return(y)
-}
+ff <- joyn::merge(ff, cpi,
+                  by         = c("year", "area"),
+                  match_type = "m:1",
+                  reportvar  = FALSE)
 
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Execution   ---------
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-dd <- purrr::map(.x = years,
-                 .f = ~{
-                   mn <- means[[.x]]
-                   df <- ld[[.x]]
-                   z <- gmeans(df, mn)
-                   # z <- copy(z)
-                   # z[, year := as.numeric(.x)]
-                   return(z)
-                 })
-
-
-ff <- as.data.table(dd)
-
-setnames(ff, names(ff), years)
 ff[,
-   area := c("rural", "urban")]
-
-ff <- melt(ff, id = "area",
-           variable.name = "year",
-           value.name    = "means",
-           variable.factor = FALSE)
-
-ff <-
-  ff[,
-     year := as.numeric(year)
-  ][year  >= 2011
-  ][, means := {
-    x <- as.numeric(means)
-    x <- x*(365/12)
-  }
-  ]
+   mean_ppp := wbpip:::deflate_welfare_mean(mean, ppp, cpi)]
 
 
-ff <- dcast(ff, year ~ area, value.var = "means")
+# save
+filename <- fs::path(tdirp, "CHN_mean", ext = "dta")
+haven::write_dta(ff,filename)
 
 
-gt_ff <- gt(ff)
 
-gt_ff %>%
-  tab_header(
-    title = "Monthly mean in 2011 PPPs"
-  )
+
+
+#
+# gt_ff <- gt(ff)
+#
+# gt_ff %>%
+#   tab_header(
+#     title = "Monthly mean in 2011 PPPs"
+#   )

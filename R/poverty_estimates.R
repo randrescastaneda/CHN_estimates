@@ -21,7 +21,9 @@ ld   <- pipload::pip_load_cache("CHN", type = "list")
 ## population --------
 
 pop <- pipload::pip_load_aux("pop")
-pop <- pop[country_code == "CHN"]
+pop <- pop[country_code == "CHN"
+           ][,
+             year := as.numeric(year)]
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ## Group data means in LCU --------
@@ -93,6 +95,10 @@ gd_povstats <- function(df, mn) {
 # Execution   ---------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# mn <- means[[1]]
+# df <- ld[[1]]
+# z <- gd_povstats(df, mn)
+
 
 dd <- purrr::map_df(.x = years,
                     .f = ~{
@@ -121,6 +127,16 @@ vars <- names(dfn)
 dff = rbindlist(list(df[, ..vars], dfn), use.names = TRUE)
 
 setorder(dff, year, poverty_line, data_level)
+
+
+# save
+filename <- fs::path(tdirp, "CHN_pov", ext = "dta")
+haven::write_dta(dff,filename)
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## compare to povcalnet --------
 
 pcn <- purrr::map_df(.x = c(1.9, 3.2, 5.5),
                      .f = ~{
@@ -152,10 +168,10 @@ dfc <- joyn::merge(dff, pcn2, by = c("year = datayear",
 dfc[,
     diff := abs(headcount - headcount.y)]
 
+
+# differences
 collapse::qsu(dfc, diff ~ data_level+year)
 
-filename <- fs::path(tdirp, "CHN_pov", ext = "dta")
-haven::write_dta(dff,filename)
 
 
 # chart
