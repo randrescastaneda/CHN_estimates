@@ -5,6 +5,7 @@
 
 library(data.table)
 library(ggplot2)
+library(gt)
 
 options(pipload.verbose = FALSE)
 
