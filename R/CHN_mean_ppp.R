@@ -76,11 +76,22 @@ ff <- joyn::merge(ff, cpi,
 ff[,
    mean_ppp := wbpip:::deflate_welfare_mean(mean, ppp, cpi)]
 
+setnames(ff, c("mean_ppp", "mean"), c("mean_ppp_day", "mean_lcu_day"))
+
+ff[,
+   `:=`(
+     mean_ppp_annual  = mean_ppp_day* 365,
+     mean_ppp_monthly = mean_ppp_day* (365/12),
+     mean_lcu_annual  = mean_lcu_day* 365,
+     mean_lcu_monthly = mean_lcu_day* (365/12)
+     )
+   ]
+
+setcolorder(ff, c("year", "area", "ppp", "cpi"))
 
 # save
 filename <- fs::path(tdirp, "CHN_mean", ext = "dta")
 haven::write_dta(ff,filename)
-
 
 
 
