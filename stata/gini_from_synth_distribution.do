@@ -1,6 +1,9 @@
 * calculate Gini for CHN using the synthetic distribution
 version 16
 
+cap which fastgini
+if (_rc) ssc install fastgini
+
 cap frame drop gini
 frame create gini  year double(gini)
 
